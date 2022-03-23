@@ -150,6 +150,20 @@ char* resolve(char *hostname, bool is_mx) {
 	// to further process and extract the needed information.
 	// Remember that DNS is a binary protocol: if you try printing out response
 	// as a string, it won't work correctly.
+	memset(query, 0, MAX_QUERY_SIZE);
+	DNSHeader *hdr = (DNSHeader*)query;
+	hdr->id = (uint16_t)response[0] << 8;
+	hdr->id += response[1];
+	hdr->flags = (uint16_t)response[2] << 8;
+	hdr->flags += response[3];
+
+	// for(int i = 0; i < 10; i++){
+	// 	printf("%x\n", response[i]);
+	// }
+
+	printf("\n\n%x", hdr->id);
+	printf("\n\n%x", hdr->flags);
+	printf("\n\n%x", hdr->q_count);
 
 	return NULL;
 }
