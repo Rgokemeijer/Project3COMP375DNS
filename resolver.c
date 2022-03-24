@@ -15,6 +15,64 @@
 #define MAX_QUERY_SIZE 1024
 #define MAX_RESPONSE_SIZE 4096
 
+struct flag_values{
+	bool response;
+	uint8_t opcode;
+	bool authoritative;
+	bool truncated;
+	bool recursion_desired;
+	bool recursion_available;
+	bool reserved;
+	bool answer_authenticated;
+	bool non_authenticated_data;
+	uint8_t reply_code;
+};
+
+struct query{
+	char* name;
+	uint8_t type, class;
+};
+
+struct query get_query_data()
+{
+
+}
+
+struct flag_values get_flag_values(uint16_t flags)
+{
+	struct flag_values flag_vals; 
+	printf("%x\n", flags);
+	flag_vals.reply_code = flags & 15;
+	flags = flags >> 4;
+	printf(">>4 %x\n", flags);
+	flag_vals.non_authenticated_data = flags & 1;
+	flags = flags >> 1;
+	printf(">>1%x\n", flags);
+	flag_vals.answer_authenticated = flags & 1;
+	flags = flags >> 1;
+	flag_vals.reserved = flags & 1;
+	flags = flags >> 1;
+	flag_vals.recursion_available = flags & 1;
+	flags = flags >> 1;
+	flag_vals.recursion_desired = flags & 1;
+	flags = flags >> 1;
+	flag_vals.truncated = flags & 1;
+	flags = flags >> 1;
+	flag_vals.authoritative = flags & 1;
+	flags = flags >> 1;
+	flag_vals.opcode = flags & 15;
+	flags = flags >> 4;
+	flag_vals.response = flags & 1;
+	flags = flags >> 1;
+	printf("\n%d", flag_vals.reply_code);
+	printf("\n%d", flag_vals.reserved);
+	printf("\n%d", flag_vals.recursion_available);
+	// printf("\n%d", flag_vals.response);
+	printf("\n%d", flag_vals.truncated);
+	printf("\n%d", flag_vals.authoritative);
+	printf("\n%d", flag_vals.opcode);
+	printf("\n%d", flag_vals.response);
+}
 // Note: uint8_t* is a pointer to 8 bits of data.
 
 /**
@@ -24,7 +82,9 @@
  * @param hostname The host we are trying to resolve
  * @return The number of bytes in the constructed query.
  */
-int construct_query(uint8_t* query, char* hostname) {
+
+int construct_query(uint8_t *query, char *hostname)
+{
 	memset(query, 0, MAX_QUERY_SIZE);
 
 	// first part of the query is a fixed size header
@@ -152,18 +212,21 @@ char* resolve(char *hostname, bool is_mx) {
 	// as a string, it won't work correctly.
 	memset(query, 0, MAX_QUERY_SIZE);
 	DNSHeader *hdr = (DNSHeader*)query;
-	hdr->id = (uint16_t)response[0] << 8;
-	hdr->id += response[1];
-	hdr->flags = (uint16_t)response[2] << 8;
-	hdr->flags += response[3];
+	 
+	struct flag_values flag_vals = get_flag_values(hdr->flags);
 
+	
 	// for(int i = 0; i < 10; i++){
 	// 	printf("%x\n", response[i]);
 	// }
 
-	printf("\n\n%x", hdr->id);
-	printf("\n\n%x", hdr->flags);
-	printf("\n\n%x", hdr->q_count);
+	// printf("\n\n%x", hdr->id);
+	// printf("\n\n%x", hdr->flags);
+	// printf("\n\n%x", hdr->q_count);
+	// printf("\n\n%x", hdr->a_count);
+	// printf("\n\n%x", hdr->auth_count);
+	// printf("\n\n%x", hdr->other_count);
+
 
 	return NULL;
 }
