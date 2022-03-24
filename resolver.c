@@ -29,25 +29,29 @@ struct flag_values{
 };
 
 struct query{
-	char* name;
+	char name[200];
 	uint8_t type, class;
 };
 
 struct query get_query_data(uint8_t response[])
 {
-
+	struct query query_data;
+	int response_loc = 12;
+	response_loc += getStringFromDNS(response, response + response_loc, query_data.name);
+	query_data.type = ((uint16_t)response[response_loc] << 8) + response[response_loc + 1];
+	query_data.class = ((uint16_t)response[response_loc+2] << 8) + response[response_loc + 3];
+	// printf("\nName: %s " , query_data.name);
+	// printf("\ntype: %x " , query_data.type);
+	// printf("\nclass: %x " , query_data.class);
 }
 
 struct flag_values get_flag_values(uint16_t flags)
 {
 	struct flag_values flag_vals; 
-	printf("%x\n", flags);
 	flag_vals.reply_code = flags & 15;
 	flags = flags >> 4;
-	printf(">>4 %x\n", flags);
 	flag_vals.non_authenticated_data = flags & 1;
 	flags = flags >> 1;
-	printf(">>1%x\n", flags);
 	flag_vals.answer_authenticated = flags & 1;
 	flags = flags >> 1;
 	flag_vals.reserved = flags & 1;
@@ -64,14 +68,14 @@ struct flag_values get_flag_values(uint16_t flags)
 	flags = flags >> 4;
 	flag_vals.response = flags & 1;
 	flags = flags >> 1;
-	printf("\n%d", flag_vals.reply_code);
-	printf("\n%d", flag_vals.reserved);
-	printf("\n%d", flag_vals.recursion_available);
+	// printf("\n%d", flag_vals.reply_code);
+	// printf("\n%d", flag_vals.reserved);
+	// printf("\n%d", flag_vals.recursion_available);
 	// printf("\n%d", flag_vals.response);
-	printf("\n%d", flag_vals.truncated);
-	printf("\n%d", flag_vals.authoritative);
-	printf("\n%d", flag_vals.opcode);
-	printf("\n%d", flag_vals.response);
+	// printf("\n%d", flag_vals.truncated);
+	// printf("\n%d", flag_vals.authoritative);
+	// printf("\n%d", flag_vals.opcode);
+	// printf("\n%d", flag_vals.response);
 }
 // Note: uint8_t* is a pointer to 8 bits of data.
 
@@ -218,8 +222,9 @@ char* resolve(char *hostname, bool is_mx) {
 	hdr->a_count = ((uint16_t)response[6] << 8) + response[7];
 	hdr->auth_count = ((uint16_t)response[8] << 8) + response[9];
 	hdr->other_count = ((uint16_t)response[10] << 8) + response[11];
-	
+
 	struct flag_values flag_vals = get_flag_values(hdr->flags);
+	struct query query_data = get_query_data(response);
 
 	
 	// for(int i = 0; i < 10; i++){
