@@ -33,7 +33,7 @@ struct query{
 	uint8_t type, class;
 };
 
-struct query get_query_data()
+struct query get_query_data(uint8_t response[])
 {
 
 }
@@ -212,7 +212,13 @@ char* resolve(char *hostname, bool is_mx) {
 	// as a string, it won't work correctly.
 	memset(query, 0, MAX_QUERY_SIZE);
 	DNSHeader *hdr = (DNSHeader*)query;
-	 
+	hdr->id = ((uint16_t)response[0] << 8) + response[1];
+	hdr->flags = ((uint16_t)response[2] << 8) + response[3];
+	hdr->q_count = ((uint16_t)response[4] << 8) + response[5];
+	hdr->a_count = ((uint16_t)response[6] << 8) + response[7];
+	hdr->auth_count = ((uint16_t)response[8] << 8) + response[9];
+	hdr->other_count = ((uint16_t)response[10] << 8) + response[11];
+	
 	struct flag_values flag_vals = get_flag_values(hdr->flags);
 
 	
