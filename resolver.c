@@ -36,7 +36,8 @@ struct query{
 struct answer{
 	char name[138]; //DO NOT CHANGE!!!
 	uint8_t type, class, data_length;
-	uint32_t address, ttl;
+	uint32_t ttl;
+	uint8_t extra_data[231]; //NO!!!
 };
 
 struct query get_query_data(uint8_t response[], int *offset)
@@ -53,14 +54,16 @@ struct answer get_answer_data(uint8_t response[], int *offset)
 {
 	struct answer answer_data;
 	*offset += getStringFromDNS(response, response + *offset, answer_data.name);
+	// printf("%s, %d\n", answer_data.name, answer_data.name);
 	answer_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
 	answer_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
 	answer_data.ttl = ((uint32_t)response[*offset + 4] << 24) + ((uint32_t)response[*offset + 5] << 16);
 	answer_data.ttl += ((uint16_t)response[*offset + 6] << 8) + response[*offset + 7];
 	answer_data.data_length = ((uint16_t)response[*offset+8] << 8) + response[*offset + 9];
-	answer_data.address = ((uint32_t)response[*offset + 10] << 24) + ((uint32_t)response[*offset + 11] << 16);
-	answer_data.address += ((uint16_t)response[*offset + 12] << 8) + response[*offset + 13];
-	*offset += 14;
+	for(int i = 0; i < answer_data.data_length; i++){
+		answer_data.extra_data[i] = response[*offset + i];
+	}	
+	*offset += 10 + answer_data.data_length;
 	//printf("\n%s", answer_data.name);
 	//printf("\n%d", answer_data.address);
 	return answer_data;
@@ -246,10 +249,16 @@ char* resolve(char *hostname, bool is_mx) {
 
 	struct flag_values flag_vals = get_flag_values(hdr->flags);
 	int offset = 12;
-	struct query query_data = get_query_data(response, &offset);
-	struct answer answer_data = get_answer_data(response, &offset);
-	printf("\n%d\n", response[offset]);
-	printf("\n%d\n", response[offset+1]);
+	struct query queries[hdr->q_count];
+	for(int i = 0; i < hdr->q_count; i++){
+		queries[i] = get_query_data(response, &offset);
+	};
+	struct answer answers[hdr->a_count];
+	for (int i = 0; i < hdr->a_count; i++){
+		// printf("Getting answer\n");
+		answers[i] = get_answer_data(response, &offset);
+	};
+	printf("\n%s\n", answers[1].name);
 	
 	// for(int i = 0; i < 10; i++){
 	// 	printf("%x\n", response[i]);
@@ -273,7 +282,7 @@ int main(int argc, char **argv) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 	}
 
-	char *answer = resolve("www.sandiego.edu", false);
+	char *answer = resolve("catalogs.sandiego.edu", false);
 
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
