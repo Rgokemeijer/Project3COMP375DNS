@@ -29,20 +29,41 @@ struct flag_values{
 };
 
 struct query{
-	char name[200];
+	char name[173]; //DO NOT CHANGE!!!
 	uint8_t type, class;
 };
 
-struct query get_query_data(uint8_t response[])
+struct answer{
+	char name[138]; //DO NOT CHANGE!!!
+	uint8_t type, class, data_length;
+	uint32_t address, ttl;
+};
+
+struct query get_query_data(uint8_t response[], int *offset)
 {
 	struct query query_data;
-	int response_loc = 12;
-	response_loc += getStringFromDNS(response, response + response_loc, query_data.name);
-	query_data.type = ((uint16_t)response[response_loc] << 8) + response[response_loc + 1];
-	query_data.class = ((uint16_t)response[response_loc+2] << 8) + response[response_loc + 3];
-	// printf("\nName: %s " , query_data.name);
-	// printf("\ntype: %x " , query_data.type);
-	// printf("\nclass: %x " , query_data.class);
+	*offset += getStringFromDNS(response, response + *offset, query_data.name);
+	query_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
+	query_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
+	*offset += 4;
+	return query_data;
+}
+
+struct answer get_answer_data(uint8_t response[], int *offset)
+{
+	struct answer answer_data;
+	*offset += getStringFromDNS(response, response + *offset, answer_data.name);
+	answer_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
+	answer_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
+	answer_data.ttl = ((uint32_t)response[*offset + 4] << 24) + ((uint32_t)response[*offset + 5] << 16);
+	answer_data.ttl += ((uint16_t)response[*offset + 6] << 8) + response[*offset + 7];
+	answer_data.data_length = ((uint16_t)response[*offset+8] << 8) + response[*offset + 9];
+	answer_data.address = ((uint32_t)response[*offset + 10] << 24) + ((uint32_t)response[*offset + 11] << 16);
+	answer_data.address += ((uint16_t)response[*offset + 12] << 8) + response[*offset + 13];
+	*offset += 14;
+	//printf("\n%s", answer_data.name);
+	//printf("\n%d", answer_data.address);
+	return answer_data;
 }
 
 struct flag_values get_flag_values(uint16_t flags)
@@ -224,8 +245,11 @@ char* resolve(char *hostname, bool is_mx) {
 	hdr->other_count = ((uint16_t)response[10] << 8) + response[11];
 
 	struct flag_values flag_vals = get_flag_values(hdr->flags);
-	struct query query_data = get_query_data(response);
-
+	int offset = 12;
+	struct query query_data = get_query_data(response, &offset);
+	struct answer answer_data = get_answer_data(response, &offset);
+	printf("\n%d\n", response[offset]);
+	printf("\n%d\n", response[offset+1]);
 	
 	// for(int i = 0; i < 10; i++){
 	// 	printf("%x\n", response[i]);
