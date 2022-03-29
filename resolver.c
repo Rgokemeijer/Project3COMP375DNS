@@ -47,11 +47,13 @@ struct query get_query_data(uint8_t response[], int *offset)
 	query_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
 	query_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
 	*offset += 4;
+	// printf("Read Query offset now %d", *offset);
 	return query_data;
 }
 
 struct answer get_answer_data(uint8_t response[], int *offset)
 {
+	// printf("Read answe offset now %d", *offset);
 	struct answer answer_data;
 	*offset += getStringFromDNS(response, response + *offset, answer_data.name);
 	// printf("%s, %d\n", answer_data.name, answer_data.name);
@@ -64,6 +66,7 @@ struct answer get_answer_data(uint8_t response[], int *offset)
 		answer_data.extra_data[i] = response[*offset + i + 10];
 	}	
 	*offset += 10 + answer_data.data_length;
+	// printf("Read answer finished offset now %d", *offset);
 	// printf("\n%s", answer_data.name);
 	// printf("\n%d", answer_data.type);
 	// printf("\n%d", answer_data.class);
@@ -267,9 +270,15 @@ char* resolve(char *hostname, bool is_mx) {
 	for(int i = 0; i < hdr->q_count; i++){
 		queries[i] = get_query_data(response, &offset);
 	};
-	struct answer answers[hdr->a_count];
-	for (int i = 0; i < hdr->a_count; i++){
+	struct answer answers[hdr->a_count + hdr->auth_count];
+	for (int i = 0; i < hdr->a_count + hdr->auth_count; i++){
 		// printf("Getting answer\n");
+		// printf("%d", response[offset]);
+		// printf("%d", response[offset]);
+		// printf("%d", response[offset]);
+		// printf("%d", response[offset]);
+		// printf("%d", response[offset]);
+
 		answers[i] = get_answer_data(response, &offset);
 	};
 
@@ -278,8 +287,11 @@ char* resolve(char *hostname, bool is_mx) {
 		printf("%u\n", answers[0].extra_data[i]);
 	}
 	if (is_mx){
-		return NULL;
+		char *server_name = malloc(200);
+		getStringFromDNS(response, answers[0].extra_data, server_name); // If mx there is no answer only auth and other
+		return server_name;
 	}
+	
 	bytes_to_str(answers[0].extra_data, address);
 	return address;
 }
@@ -291,7 +303,7 @@ int main(int argc, char **argv) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 	}
 
-	char *answer = resolve("google.com", true);
+	char *answer = resolve("catalogs.sandiego.edu", false);
 
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
