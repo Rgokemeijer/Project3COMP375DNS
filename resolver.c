@@ -37,7 +37,7 @@ struct answer{
 	char name[138]; //DO NOT CHANGE!!!
 	uint8_t type, class, data_length;
 	uint32_t ttl;
-	uint8_t extra_data[231]; //NO!!!
+	uint8_t extra_data[123]; //NO!!! ugh fine
 };
 
 struct query get_query_data(uint8_t response[], int *offset)
@@ -61,11 +61,19 @@ struct answer get_answer_data(uint8_t response[], int *offset)
 	answer_data.ttl += ((uint16_t)response[*offset + 6] << 8) + response[*offset + 7];
 	answer_data.data_length = ((uint16_t)response[*offset+8] << 8) + response[*offset + 9];
 	for(int i = 0; i < answer_data.data_length; i++){
-		answer_data.extra_data[i] = response[*offset + i];
+		answer_data.extra_data[i] = response[*offset + i + 10];
 	}	
 	*offset += 10 + answer_data.data_length;
-	//printf("\n%s", answer_data.name);
-	//printf("\n%d", answer_data.address);
+	// printf("\n%s", answer_data.name);
+	// printf("\n%d", answer_data.type);
+	// printf("\n%d", answer_data.class);
+	// printf("\n%d", answer_data.ttl);
+	// printf("\n%d", answer_data.data_length);
+	// for(int i = 0; i < 4; i++){
+	// 	printf("\n%u", answer_data.extra_data[i]);
+	// }
+	// printf("\n%d", answer_data.type);
+	// printf("\n%d", response);
 	return answer_data;
 }
 
@@ -92,14 +100,13 @@ struct flag_values get_flag_values(uint16_t flags)
 	flags = flags >> 4;
 	flag_vals.response = flags & 1;
 	flags = flags >> 1;
-	// printf("\n%d", flag_vals.reply_code);
-	// printf("\n%d", flag_vals.reserved);
-	// printf("\n%d", flag_vals.recursion_available);
-	// printf("\n%d", flag_vals.response);
-	// printf("\n%d", flag_vals.truncated);
-	// printf("\n%d", flag_vals.authoritative);
-	// printf("\n%d", flag_vals.opcode);
-	// printf("\n%d", flag_vals.response);
+}
+
+void bytes_to_str(uint8_t* bytes, char* addr){
+	printf("%u.%u", bytes[0], bytes[1]);
+	sprintf(addr, "%u.%u.%u.%u", bytes[0], bytes[1], bytes[2], bytes[3]);
+	// printf("%s", addr);
+	// return addr;
 }
 // Note: uint8_t* is a pointer to 8 bits of data.
 
@@ -111,7 +118,7 @@ struct flag_values get_flag_values(uint16_t flags)
  * @return The number of bytes in the constructed query.
  */
 
-int construct_query(uint8_t *query, char *hostname)
+int construct_query(uint8_t *query, char *hostname, bool is_mx)
 {
 	memset(query, 0, MAX_QUERY_SIZE);
 
@@ -139,9 +146,16 @@ int construct_query(uint8_t *query, char *hostname)
 	query_len += name_len; 
 	
 	// set the query type to A (i.e. 1)
-	uint16_t *type = (uint16_t*)(query+query_len);
-	*type = htons(1);
-	query_len+=2;
+	if (!is_mx){
+		uint16_t *type = (uint16_t*)(query+query_len);
+		*type = htons(1);
+		query_len+=2;
+	}
+	else{
+		uint16_t *type = (uint16_t*)(query+query_len);
+		*type = htons(15);
+		query_len+=2;
+	}
 
 	// finally the class: INET
 	uint16_t *class = (uint16_t*)(query+query_len);
@@ -207,7 +221,7 @@ char* resolve(char *hostname, bool is_mx) {
 	// You should use that type for all buffers used for sending to and
 	// receiving from the DNS server.
 	uint8_t query[MAX_QUERY_SIZE]; 
-	int query_len=construct_query(query, hostname);
+	int query_len=construct_query(query, hostname, is_mx);
 
 	int send_count = sendto(sock, query, query_len, 0,
 							(struct sockaddr*)&addr, sizeof(addr));
@@ -258,21 +272,16 @@ char* resolve(char *hostname, bool is_mx) {
 		// printf("Getting answer\n");
 		answers[i] = get_answer_data(response, &offset);
 	};
-	printf("\n%s\n", answers[1].name);
-	
-	// for(int i = 0; i < 10; i++){
-	// 	printf("%x\n", response[i]);
-	// }
 
-	// printf("\n\n%x", hdr->id);
-	// printf("\n\n%x", hdr->flags);
-	// printf("\n\n%x", hdr->q_count);
-	// printf("\n\n%x", hdr->a_count);
-	// printf("\n\n%x", hdr->auth_count);
-	// printf("\n\n%x", hdr->other_count);
-
-
-	return NULL;
+	char *address = malloc(17);
+	for(int i = 0; i < 4; i++){
+		printf("%u\n", answers[0].extra_data[i]);
+	}
+	if (is_mx){
+		return NULL;
+	}
+	bytes_to_str(answers[0].extra_data, address);
+	return address;
 }
 
 
@@ -282,7 +291,7 @@ int main(int argc, char **argv) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 	}
 
-	char *answer = resolve("catalogs.sandiego.edu", false);
+	char *answer = resolve("google.com", true);
 
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
