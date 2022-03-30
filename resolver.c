@@ -105,8 +105,9 @@ struct flag_values get_flag_values(uint16_t flags)
 	flags = flags >> 1;
 }
 
+
 void bytes_to_str(uint8_t* bytes, char* addr){
-	printf("%u.%u", bytes[0], bytes[1]);
+	// printf("%u.%u", bytes[0], bytes[1]);
 	sprintf(addr, "%u.%u.%u.%u", bytes[0], bytes[1], bytes[2], bytes[3]);
 	// printf("%s", addr);
 	// return addr;
@@ -168,6 +169,17 @@ int construct_query(uint8_t *query, char *hostname, bool is_mx)
 	return query_len;
 }
 
+int search_for(struct answer *answers, int type, int num_answers, uint8_t *response){
+	for(int i = 0; i < num_answers; i++){
+		if (answers[i].type == 15){
+			// char *server_name = malloc(200);
+			// getStringFromDNS(response, answers[i].extra_data, server_name); // If mx there is no answer only auth and other
+			// printf("Found mx response: returning %s\n", server_name);
+			return i;
+		}
+	}
+	return -1;
+}
 /**
  * Returns a string with the IP address (for an A record) or name of mail
  * server associated with the given hostname.
@@ -270,8 +282,9 @@ char* resolve(char *hostname, bool is_mx) {
 	for(int i = 0; i < hdr->q_count; i++){
 		queries[i] = get_query_data(response, &offset);
 	};
-	struct answer answers[hdr->a_count + hdr->auth_count];
-	for (int i = 0; i < hdr->a_count + hdr->auth_count; i++){
+	int num_answers = hdr->a_count + hdr->auth_count + hdr->other_count;
+	struct answer answers[num_answers];
+	for (int i = 0; i < num_answers; i++){
 		// printf("Getting answer\n");
 		// printf("%d", response[offset]);
 		// printf("%d", response[offset]);
@@ -283,13 +296,31 @@ char* resolve(char *hostname, bool is_mx) {
 	};
 
 	char *address = malloc(17);
-	for(int i = 0; i < 4; i++){
-		printf("%u\n", answers[0].extra_data[i]);
-	}
+	// for(int i = 0; i < 4; i++){
+	// 	printf("%u\n", answers[0].extra_data[i]);
+	// }
 	if (is_mx){
+		int ans_num = search_for(answers, 15, num_answers, response);
+		if (ans_num > -1){
+			char *server_name = malloc(200);
+			getStringFromDNS(response, answers[ans_num].extra_data, server_name); // If mx there is no answer only auth and other
+			printf("Found mx response: returning %s\n", server_name);
+			return server_name;
+		}
+		ans_num = search_for(answers, 1, num_answers, response);
+		if (ans_num > -1){
+			printf("Checked for MX response none found found type A getting IP\n");
+			char* ip = malloc(17);
+			char *server_name = malloc(200);
+			getStringFromDNS(response, answers[ans_num].extra_data, server_name);
+			ip = resolve(server_name, false);
+			printf("Found ip is %s\n", ip);
+			resolve(ip, true);
+		}
 		char *server_name = malloc(200);
-		getStringFromDNS(response, answers[0].extra_data, server_name); // If mx there is no answer only auth and other
-		return server_name;
+		getStringFromDNS(response, answers[0].extra_data, server_name);
+		
+		resolve(ip, true);
 	}
 	
 	bytes_to_str(answers[0].extra_data, address);
@@ -303,7 +334,7 @@ int main(int argc, char **argv) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 	}
 
-	char *answer = resolve("catalogs.sandiego.edu", false);
+	char *answer = resolve("google.com", true);
 
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
