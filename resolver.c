@@ -171,7 +171,7 @@ int construct_query(uint8_t *query, char *hostname, bool is_mx)
 
 int search_for(struct answer *answers, int type, int num_answers, uint8_t *response){
 	for(int i = 0; i < num_answers; i++){
-		if (answers[i].type == 15){
+		if (answers[i].type == type){
 			// char *server_name = malloc(200);
 			// getStringFromDNS(response, answers[i].extra_data, server_name); // If mx there is no answer only auth and other
 			// printf("Found mx response: returning %s\n", server_name);
@@ -295,12 +295,11 @@ char* resolve(char *hostname, bool is_mx) {
 		answers[i] = get_answer_data(response, &offset);
 	};
 
-	char *address = malloc(17);
 	// for(int i = 0; i < 4; i++){
 	// 	printf("%u\n", answers[0].extra_data[i]);
 	// }
 	if (is_mx){
-		int ans_num = search_for(answers, 15, num_answers, response);
+		int ans_num = search_for(answers, 15, num_answers, response); // Searches for MX response
 		if (ans_num > -1){
 			char *server_name = malloc(200);
 			getStringFromDNS(response, answers[ans_num].extra_data, server_name); // If mx there is no answer only auth and other
@@ -311,20 +310,24 @@ char* resolve(char *hostname, bool is_mx) {
 		if (ans_num > -1){
 			printf("Checked for MX response none found found type A getting IP\n");
 			char* ip = malloc(17);
-			char *server_name = malloc(200);
-			getStringFromDNS(response, answers[ans_num].extra_data, server_name);
-			ip = resolve(server_name, false);
+			// char *server_name = malloc(200);
+			// getStringFromDNS(response, answers[ans_num].extra_data, server_name);
+			// ip = resolve(server_name, false);
+			bytes_to_str(answers[ans_num].extra_data, ip);
 			printf("Found ip is %s\n", ip);
 			resolve(ip, true);
 		}
 		char *server_name = malloc(200);
 		getStringFromDNS(response, answers[0].extra_data, server_name);
-		
-		resolve(ip, true);
+		return NULL;
+		// resolve(ip, true);
 	}
-	
-	bytes_to_str(answers[0].extra_data, address);
-	return address;
+	int ans_num = search_for(answers, 1, num_answers, response);
+	if (ans_num > -1){
+		char *address = malloc(17);
+		bytes_to_str(answers[ans_num].extra_data, address);
+		return address;
+	}
 }
 
 
