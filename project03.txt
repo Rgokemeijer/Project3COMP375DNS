@@ -1,9 +1,11 @@
 COMP 375 - Project 3
 
-1. Partner 1's FULL Name:
-   Partner 1's USD Email Address:
-   Partner 2's FULL Name:
-   Partner 2's USD Email Address:
+1. Partner 1's FULL Name: Russell Gokemeijer
+   Partner 1's USD Email Address: rgokemeijer@sandiego.edu
+   Partner 2's FULL Name: Jared Flejter
+   Partner 2's USD Email Address: jflejter@sandiego.edu
+   Partner 3's FULL Name: Tyler Kreider
+   Partner 3's USD Email Address: tkreider@sandiego.edu
 
 
 2. A typed copy of USD's academic integrity pledge, followed by each partners'
@@ -13,19 +15,26 @@ COMP 375 - Project 3
    the document found here: https://www.sandiego.edu/conduct/documents/HonorCode.pdf
    To be clear, it is the text that starts, "I pledge to demonstrate...".
 
+"I pledge to demonstrate personal and academic integrity in all matters with my fellow students, the faculty, and the administration here at USD. I promise to be honest and accountable for my actions; and to uphold the statutes of scholastic honesty to better myself and those around me."
+RG
+JF
+TK
 
 3. The estimated number of hours spent working on the project.
-		- Time spent partner 1 spent working alone:
-		- Time spent partner 2 spent working alone:
-		- Time spent working together:
+		- Time spent partner 1 spent working alone: 1 hour
+		- Time spent partner 2 spent working alone: 0 hours
+      - Time spent partner 3 spent working alone: 0 hours
+		- Time spent working together: 7 hours
 
 
 4. A list of missing features and/or known bugs. (Put "None if there aren't
    any.)
 
+Does not return NULL upon SOA, instead exits.
 
 5. Did you submit on time? (If not, you will be charged one comp375 buck.)
+No
 
-
-6. (Optional) Any feedback you with to give me relating the project (e.g. Was it
+6. (Optional) Any feedback you wish to give me relating the project (e.g. Was it
    interesting? How could it be improved?)
+Nothing.
