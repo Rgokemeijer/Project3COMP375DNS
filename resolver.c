@@ -15,6 +15,9 @@
 #define MAX_QUERY_SIZE 1024
 #define MAX_RESPONSE_SIZE 4096
 
+
+char *send_query(char* root_ip, char* hostname, bool is_mx, int sock);
+
 struct flag_values{
 	bool response;
 	uint8_t opcode;
@@ -225,7 +228,26 @@ char* resolve(char *hostname, bool is_mx) {
 	// The following is the IP address of USD's local DNS server. It is a
 	// placeholder only (i.e. you shouldn't have this hardcoded into your final
 	// program).
-	in_addr_t nameserver_addr = inet_addr("172.16.7.15");
+	FILE *root_servers = fopen("root-servers.txt", "r");
+	char root_ip[256];
+    while (fgets(root_ip, sizeof(root_ip), root_servers)) {
+		// trys every root server
+		char *query_ans  = send_query(root_ip, hostname, is_mx, sock);
+		if (query_ans != NULL){ // If it returns a string that is answer otherwise try next root server
+			return query_ans;
+		}
+	}
+}
+
+/* Send Query takes in the query and an IP and sends that query looking for a response. 
+ * it returns 0 for error and 1 for no error
+*/
+
+char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
+	uint8_t query[MAX_QUERY_SIZE]; 
+	int query_len=construct_query(query, hostname, is_mx);
+	uint8_t response[MAX_RESPONSE_SIZE];
+	in_addr_t nameserver_addr = inet_addr(dest_ip);
 	
 	struct sockaddr_in addr; 	// internet socket address data structure
 	addr.sin_family = AF_INET;
@@ -235,9 +257,6 @@ char* resolve(char *hostname, bool is_mx) {
 	// uint8_t is a standard, unsigned 8-bit value.
 	// You should use that type for all buffers used for sending to and
 	// receiving from the DNS server.
-	uint8_t query[MAX_QUERY_SIZE]; 
-	int query_len=construct_query(query, hostname, is_mx);
-
 	int send_count = sendto(sock, query, query_len, 0,
 							(struct sockaddr*)&addr, sizeof(addr));
 
@@ -248,11 +267,10 @@ char* resolve(char *hostname, bool is_mx) {
 
 	socklen_t len = sizeof(struct sockaddr_in);
 
-	uint8_t response[MAX_RESPONSE_SIZE];
 
 	/* Blocking calls will now return error (-1) after the timeout period with
-	 * errno set to EAGAIN. */
-	res = recvfrom(sock, response, MAX_RESPONSE_SIZE, 0, 
+	* errno set to EAGAIN. */
+	int res = recvfrom(sock, response, MAX_RESPONSE_SIZE, 0, 
 					(struct sockaddr *)&addr, &len);
 
 	if (res < 1) {
@@ -262,9 +280,8 @@ char* resolve(char *hostname, bool is_mx) {
 			perror("recv");
 		}
 	}
-
-	// TODO: The server's response will be located in the response array for you
-	// to further process and extract the needed information.
+	// The server's response is be located in the response array
+	// Below that data is processed and the needed information is extracted.
 	// Remember that DNS is a binary protocol: if you try printing out response
 	// as a string, it won't work correctly.
 	memset(query, 0, MAX_QUERY_SIZE);
@@ -285,19 +302,9 @@ char* resolve(char *hostname, bool is_mx) {
 	int num_answers = hdr->a_count + hdr->auth_count + hdr->other_count;
 	struct answer answers[num_answers];
 	for (int i = 0; i < num_answers; i++){
-		// printf("Getting answer\n");
-		// printf("%d", response[offset]);
-		// printf("%d", response[offset]);
-		// printf("%d", response[offset]);
-		// printf("%d", response[offset]);
-		// printf("%d", response[offset]);
-
 		answers[i] = get_answer_data(response, &offset);
 	};
 
-	// for(int i = 0; i < 4; i++){
-	// 	printf("%u\n", answers[0].extra_data[i]);
-	// }
 	if (is_mx){
 		int ans_num = search_for(answers, 15, num_answers, response); // Searches for MX response
 		if (ans_num > -1){
@@ -322,12 +329,48 @@ char* resolve(char *hostname, bool is_mx) {
 		return NULL;
 		// resolve(ip, true);
 	}
-	int ans_num = search_for(answers, 1, num_answers, response);
-	if (ans_num > -1){
-		char *address = malloc(17);
-		bytes_to_str(answers[ans_num].extra_data, address);
-		return address;
+	// If not MX
+	// int ans_num = search_for(answers, 1, num_answers, response);
+	int type = answers[0].type;
+	
+	printf("Type: %d\n", type);
+	if (type == 2){ // NS response
+		char new_serv[256]; 
+		getStringFromDNS(response, answers[0].extra_data, new_serv);
+		printf("Looking for IP of this server: %s\n", new_serv);
+		for (int i = 0; i < num_answers; i++){
+			// Checks if the Name Servers IP is given in one of the answers
+			if (answers[i].type == 1 && strcmp(answers[i].name, new_serv)){
+				char new_addr[17];
+				bytes_to_str(answers[i].extra_data, new_addr);
+				printf("IP found new request: %s\n", new_addr);
+				return send_query(new_addr, hostname, false, sock);
+			}
+		}
+		printf("Did not find IP of %s\nNow looking for a type A\n", new_serv); // We do this because sometimes no matching A responses
+		int which_ans = search_for(answers, 1, num_answers, response);
+		if (which_ans > -1){
+			char new_addr[17];
+			bytes_to_str(answers[which_ans].extra_data, new_addr);
+			printf("A type A response found, new request: %s\n", new_addr);
+			return send_query(new_addr, hostname, false, sock);
+		}
+		printf("No type A response found sending request for it\n");
+		char *ip = send_query(dest_ip, new_serv, false, sock);
+		return send_query(ip, hostname, false, sock);
 	}
+	if (type == 1){ // We got the answer
+		char *new_addr = malloc(17);
+		bytes_to_str(answers[0].extra_data, new_addr);
+		return new_addr;
+	}
+	if (type == 5){ // CNAME
+		char new_name[256];
+		getStringFromDNS(response, answers[0].extra_data, new_name);
+		printf("Was CNAME actual name: %s", new_name);
+		return resolve(new_name, false);
+	}
+	return NULL;
 }
 
 
@@ -337,7 +380,7 @@ int main(int argc, char **argv) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 	}
 
-	char *answer = resolve("google.com", true);
+	char *answer = resolve("agar.io", false);
 
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
