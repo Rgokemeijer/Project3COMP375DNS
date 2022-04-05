@@ -1,3 +1,12 @@
+/* Authors: Russell Gokemeijer, Jared Fleiter, Tyler Kreider
+* Date: 04/0
+* This project is an implementation of DNS protocol to build an iterative DNS query resolver.
+*
+*
+*
+*/
+
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -50,16 +59,22 @@ struct query get_query_data(uint8_t response[], int *offset)
 	query_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
 	query_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
 	*offset += 4;
-	// printf("Read Query offset now %d", *offset);
 	return query_data;
 }
 
+
+/**
+ * 
+ *
+ * @param 
+ * @param 
+ *
+ * @return 
+ */
 struct answer get_answer_data(uint8_t response[], int *offset)
 {
-	// printf("Read answe offset now %d", *offset);
 	struct answer answer_data;
 	*offset += getStringFromDNS(response, response + *offset, answer_data.name);
-	// printf("%s, %d\n", answer_data.name, answer_data.name);
 	answer_data.type = ((uint16_t)response[*offset] << 8) + response[*offset + 1];
 	answer_data.class = ((uint16_t)response[*offset+2] << 8) + response[*offset + 3];
 	answer_data.ttl = ((uint32_t)response[*offset + 4] << 24) + ((uint32_t)response[*offset + 5] << 16);
@@ -69,20 +84,14 @@ struct answer get_answer_data(uint8_t response[], int *offset)
 		answer_data.extra_data[i] = response[*offset + i + 10];
 	}	
 	*offset += 10 + answer_data.data_length;
-	// printf("Read answer finished offset now %d", *offset);
-	// printf("\n%s", answer_data.name);
-	// printf("\n%d", answer_data.type);
-	// printf("\n%d", answer_data.class);
-	// printf("\n%d", answer_data.ttl);
-	// printf("\n%d", answer_data.data_length);
-	// for(int i = 0; i < 4; i++){
-	// 	printf("\n%u", answer_data.extra_data[i]);
-	// }
-	// printf("\n%d", answer_data.type);
-	// printf("\n%d", response);
 	return answer_data;
 }
 
+/**
+ * 
+ *
+ *
+ */
 struct flag_values get_flag_values(uint16_t flags)
 {
 	struct flag_values flag_vals; 
@@ -108,12 +117,16 @@ struct flag_values get_flag_values(uint16_t flags)
 	flags = flags >> 1;
 }
 
-
+/**
+ * 
+ *
+ * @param bytes the data we want to convert
+ * @param addr the address we want to put converted data into 
+ *
+ * @return: nothing
+ */
 void bytes_to_str(uint8_t* bytes, char* addr){
-	// printf("%u.%u", bytes[0], bytes[1]);
 	sprintf(addr, "%u.%u.%u.%u", bytes[0], bytes[1], bytes[2], bytes[3]);
-	// printf("%s", addr);
-	// return addr;
 }
 // Note: uint8_t* is a pointer to 8 bits of data.
 
@@ -172,12 +185,19 @@ int construct_query(uint8_t *query, char *hostname, bool is_mx)
 	return query_len;
 }
 
+/** Searches for the location in the answers struct with a matching DNS record type
+ * 
+ *
+ * @param answers
+ * @param type
+ * @param num_answers
+ * @param response
+ *
+ * @return returns an int  which is the location in answers that has the correct DNS type (ns, cname, mx)
+ */
 int search_for(struct answer *answers, int type, int num_answers, uint8_t *response){
 	for(int i = 0; i < num_answers; i++){
 		if (answers[i].type == type){
-			// char *server_name = malloc(200);
-			// getStringFromDNS(response, answers[i].extra_data, server_name); // If mx there is no answer only auth and other
-			// printf("Found mx response: returning %s\n", server_name);
 			return i;
 		}
 	}
@@ -196,14 +216,12 @@ int search_for(struct answer *answers, int type, int num_answers, uint8_t *respo
  *   resolved, NULL will be returned.
  */
 char* resolve(char *hostname, bool is_mx) {
-
 	if (is_mx == false) {
 		printf("Requesting A record for %s\n", hostname);
 	}
 	else {
 		printf("Requesting MX record for %s\n", hostname);
 	}
-
 	// create a UDP (i.e. Datagram) socket
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -236,6 +254,7 @@ char* resolve(char *hostname, bool is_mx) {
 		if (query_ans != NULL){ // If it returns a string that is answer otherwise try next root server
 			return query_ans;
 		}
+		printf("Could not find response trying next root server.\n");
 	}
 }
 
@@ -304,60 +323,34 @@ char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
 	for (int i = 0; i < num_answers; i++){
 		answers[i] = get_answer_data(response, &offset);
 	};
+// }	
 
-	if (is_mx){
-		int ans_num = search_for(answers, 15, num_answers, response); // Searches for MX response
-		if (ans_num > -1){
-			char *server_name = malloc(200);
-			getStringFromDNS(response, answers[ans_num].extra_data, server_name); // If mx there is no answer only auth and other
-			printf("Found mx response: returning %s\n", server_name);
-			return server_name;
-		}
-		ans_num = search_for(answers, 1, num_answers, response);
-		if (ans_num > -1){
-			printf("Checked for MX response none found found type A getting IP\n");
-			char* ip = malloc(17);
-			// char *server_name = malloc(200);
-			// getStringFromDNS(response, answers[ans_num].extra_data, server_name);
-			// ip = resolve(server_name, false);
-			bytes_to_str(answers[ans_num].extra_data, ip);
-			printf("Found ip is %s\n", ip);
-			resolve(ip, true);
-		}
-		char *server_name = malloc(200);
-		getStringFromDNS(response, answers[0].extra_data, server_name);
-		return NULL;
-		// resolve(ip, true);
-	}
-	// If not MX
-	// int ans_num = search_for(answers, 1, num_answers, response);
+// char *analyze_request(){
 	int type = answers[0].type;
-	
-	printf("Type: %d\n", type);
 	if (type == 2){ // NS response
 		char new_serv[256]; 
 		getStringFromDNS(response, answers[0].extra_data, new_serv);
-		printf("Looking for IP of this server: %s\n", new_serv);
 		for (int i = 0; i < num_answers; i++){
 			// Checks if the Name Servers IP is given in one of the answers
 			if (answers[i].type == 1 && strcmp(answers[i].name, new_serv)){
 				char new_addr[17];
 				bytes_to_str(answers[i].extra_data, new_addr);
-				printf("IP found new request: %s\n", new_addr);
-				return send_query(new_addr, hostname, false, sock);
+				printf("Received an NS response now querying %s to %s\n", hostname, new_addr);
+				return send_query(new_addr, hostname, is_mx, sock);
 			}
 		}
-		printf("Did not find IP of %s\nNow looking for a type A\n", new_serv); // We do this because sometimes no matching A responses
+		// We do this because sometimes no matching A responses
 		int which_ans = search_for(answers, 1, num_answers, response);
 		if (which_ans > -1){
 			char new_addr[17];
 			bytes_to_str(answers[which_ans].extra_data, new_addr);
-			printf("A type A response found, new request: %s\n", new_addr);
-			return send_query(new_addr, hostname, false, sock);
+			printf("Received an NS response now querying %s to %s\n", hostname, new_addr);
+			return send_query(new_addr, hostname, is_mx, sock);
 		}
-		printf("No type A response found sending request for it\n");
-		char *ip = send_query(dest_ip, new_serv, false, sock);
-		return send_query(ip, hostname, false, sock);
+		printf("Received an NS response without a type A response. Sending request to find the NS's IP.\n");
+		char *ip = resolve(new_serv, false);
+		printf("Found the NS's IP. Now querying %s to %s\n", hostname, ip);
+		return send_query(ip, hostname, is_mx, sock);
 	}
 	if (type == 1){ // We got the answer
 		char *new_addr = malloc(17);
@@ -367,21 +360,49 @@ char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
 	if (type == 5){ // CNAME
 		char new_name[256];
 		getStringFromDNS(response, answers[0].extra_data, new_name);
-		printf("Was CNAME actual name: %s", new_name);
-		return resolve(new_name, false);
+		printf("Was CNAME actual name: %s\n", new_name);
+		return resolve(new_name, is_mx);
+	}
+	if (type == 15){
+		char *mx_addr = malloc(172);
+		// Plus two is to skip the preferences filed of mx type responses
+		getStringFromDNS(response,answers[0].extra_data + 2, mx_addr);
+		return mx_addr;
+	}
+	if (type == 6){ 
+		printf("Invalid Hostname.\n");
+		exit(0);
 	}
 	return NULL;
 }
 
-
+/**
+ * This is our main function that will read the command line arguments and calls resolve with 
+ *correct corresponding parameters
+ *
+ * @param argc the number of command line arguments
+ * @param argv an array with the command line arguments
+ *
+ * @return 0 when complete
+ */
 int main(int argc, char **argv) {
+	printf("\n\n%s, %s, %s\n", argv[0], argv[1], argv[2]);
 	if (argc < 2) {
 		// TODO: provide a more helpful message on how to use the program
 		printf("Invalid program usage for %s!\n", argv[0]);
+		exit(1);
 	}
+	bool not_mx = strcmp("-m", argv[1]);
+	char *answer;
 
-	char *answer = resolve("agar.io", false);
-
+	//command line has "-m" flag
+	if (!not_mx) {
+		answer = resolve(argv[2], true);
+	}
+	//command line doesn't have "-m" flag
+	else{
+		answer = resolve(argv[1], false);
+	}
 	if (answer != NULL) {
 		printf("Answer: %s\n", answer);
 	}
