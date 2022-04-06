@@ -2,10 +2,7 @@
 * Date: 04/04/22
 * This project is an implementation of DNS protocol to build an iterative DNS query resolver.
 *
-*
-*
 */
-
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -27,18 +24,19 @@
 
 //defines a struct that will be used to parse the flag
 //setion in the header of the response
-struct flag_values{
-	bool response;
-	uint8_t opcode;
-	bool authoritative;
-	bool truncated;
-	bool recursion_desired;
-	bool recursion_available;
-	bool reserved;
-	bool answer_authenticated;
-	bool non_authenticated_data;
-	uint8_t reply_code;
-};
+// This code is not needed
+// struct flag_values{
+// 	bool response;
+// 	uint8_t opcode;
+// 	bool authoritative;
+// 	bool truncated;
+// 	bool recursion_desired;
+// 	bool recursion_available;
+// 	bool reserved;
+// 	bool answer_authenticated;
+// 	bool non_authenticated_data;
+// 	uint8_t reply_code;
+// };
 
 //Stores information that is included in the query
 struct query{
@@ -106,34 +104,36 @@ struct answer get_answer_data(uint8_t response[], int *offset)
  *
  * @return returns the previously defined struct that holds all flags.
  */
-struct flag_values get_flag_values(uint16_t flags)
-{
-	struct flag_values flag_vals; 
-	flag_vals.reply_code = flags & 15;
-	flags = flags >> 4;
-	flag_vals.non_authenticated_data = flags & 1;
-	flags = flags >> 1;
-	flag_vals.answer_authenticated = flags & 1;
-	flags = flags >> 1;
-	flag_vals.reserved = flags & 1;
-	flags = flags >> 1;
-	flag_vals.recursion_available = flags & 1;
-	flags = flags >> 1;
-	flag_vals.recursion_desired = flags & 1;
-	flags = flags >> 1;
-	flag_vals.truncated = flags & 1;
-	flags = flags >> 1;
-	flag_vals.authoritative = flags & 1;
-	flags = flags >> 1;
-	flag_vals.opcode = flags & 15;
-	flags = flags >> 4;
-	flag_vals.response = flags & 1;
-	flags = flags >> 1;
-}
+// This code is not used
+// struct flag_values get_flag_values(uint16_t flags)
+// {
+// 	struct flag_values flag_vals; 
+// 	flag_vals.reply_code = flags & 15;
+// 	flags = flags >> 4;
+// 	flag_vals.non_authenticated_data = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.answer_authenticated = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.reserved = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.recursion_available = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.recursion_desired = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.truncated = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.authoritative = flags & 1;
+// 	flags = flags >> 1;
+// 	flag_vals.opcode = flags & 15;
+// 	flags = flags >> 4;
+// 	flag_vals.response = flags & 1;
+// 	flags = flags >> 1;
+//	return flag_vals;
+// }
 
 // previous declerations for functions to be used later
-char *send_query(char* root_ip, char* hostname, bool is_mx, int sock);
-char *analyze_request(struct answer *answers, uint8_t *response, int num_answers, char *hostname, bool is_mx, int sock);
+char *send_query(char* root_ip, char* hostname, bool is_mx, int sock, char *query_ans);
+char *analyze_request(struct answer *answers, uint8_t *response, int num_answers, char *hostname, bool is_mx, int sock, char *query_ans);
 
 /**
  *converts the byte data into a string form of the IP address.
@@ -209,7 +209,7 @@ int construct_query(uint8_t *query, char *hostname, bool is_mx)
  *
  * @return returns an int which is the location in answers that has the correct DNS type (ns, cname, mx)
  */
-int search_for(struct answer *answers, int type, int num_answers, uint8_t *response){
+int search_for(struct answer *answers, int type, int num_answers){
 	for(int i = 0; i < num_answers; i++){
 		if (answers[i].type == type){
 			return i;
@@ -263,13 +263,17 @@ char* resolve(char *hostname, bool is_mx) {
 	FILE *root_servers = fopen("root-servers.txt", "r");
 	char root_ip[256];
     while (fgets(root_ip, sizeof(root_ip), root_servers)) {
-		// trys every root server
-		char *query_ans  = send_query(root_ip, hostname, is_mx, sock);
+		// trys every root serve
+		char *query_ans = malloc(17);
+		send_query(root_ip, hostname, is_mx, sock, query_ans);
 		if (query_ans != NULL){ // If it returns a string that is answer otherwise try next root server
+			fclose(root_servers);
 			return query_ans;
 		}
 		printf("Could not find response trying next root server.\n");
 	}
+	fclose(root_servers);
+	return NULL;
 }
 
 /** 
@@ -281,7 +285,7 @@ char* resolve(char *hostname, bool is_mx) {
  * @return returns 0 for error and 1 for no error
 */
 
-char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
+char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock, char *query_ans){
 	uint8_t query[MAX_QUERY_SIZE]; 
 	int query_len=construct_query(query, hostname, is_mx);
 	uint8_t response[MAX_RESPONSE_SIZE];
@@ -329,18 +333,19 @@ char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
 	hdr->auth_count = ((uint16_t)response[8] << 8) + response[9];
 	hdr->other_count = ((uint16_t)response[10] << 8) + response[11];
 
-	struct flag_values flag_vals = get_flag_values(hdr->flags);
+	// struct flag_values flag_vals = get_flag_values(hdr->flags);
 	int offset = 12; // this offset is initial set to 12 to account for flag values and ID
-	struct query queries[hdr->q_count];
+	// struct query queries[hdr->q_count];
+	// The struct does not need to be created but the loop must go through to get the correct offset value
 	for(int i = 0; i < hdr->q_count; i++){
-		queries[i] = get_query_data(response, &offset);
+		get_query_data(response, &offset);
 	};
 	int num_answers = hdr->a_count + hdr->auth_count + hdr->other_count;
 	struct answer answers[num_answers];
 	for (int i = 0; i < num_answers; i++){
 		answers[i] = get_answer_data(response, &offset);
 	};
-	return analyze_request(answers, response, num_answers, hostname, is_mx, sock);
+	return analyze_request(answers, response, num_answers, hostname, is_mx, sock, query_ans);
 }	
 
 
@@ -358,7 +363,7 @@ char *send_query(char* dest_ip, char* hostname, bool is_mx, int sock){
  *
  * @return returns a recursive send_query call or an address
  */
-char *analyze_request(struct answer *answers, uint8_t *response, int num_answers, char *hostname, bool is_mx, int sock){
+char *analyze_request(struct answer *answers, uint8_t *response, int num_answers, char *hostname, bool is_mx, int sock, char* query_ans){
 	int type = answers[0].type;
 	if (type == 2){ // NS response
 		char new_serv[256]; 
@@ -369,46 +374,50 @@ char *analyze_request(struct answer *answers, uint8_t *response, int num_answers
 				char new_addr[17];
 				bytes_to_str(answers[i].extra_data, new_addr);
 				printf("Received an NS response now querying %s to %s\n", hostname, new_addr);
-				return send_query(new_addr, hostname, is_mx, sock);
+				return send_query(new_addr, hostname, is_mx, sock, query_ans);
 			}
 		}
 		// We do this because sometimes no matching A responses
-		int which_ans = search_for(answers, 1, num_answers, response);
+		int which_ans = search_for(answers, 1, num_answers);
 		if (which_ans > -1){
 			char new_addr[17];
 			bytes_to_str(answers[which_ans].extra_data, new_addr);
 			printf("Received an NS response now querying %s to %s\n", hostname, new_addr);
-			return send_query(new_addr, hostname, is_mx, sock);
+			return send_query(new_addr, hostname, is_mx, sock, query_ans);
 		}
 		printf("Received an NS response without a type A response. Sending request to find the NS's IP.\n");
 		char *ip = resolve(new_serv, false);
 		printf("Found the NS's IP. Now querying %s to %s\n", hostname, ip);
-		return send_query(ip, hostname, is_mx, sock);
+		char stack_ip[17];
+		strcpy(stack_ip, ip);
+		free(ip);
+		return send_query(stack_ip, hostname, is_mx, sock, query_ans);
 	}
 	if (type == 1){ //type A
-		char *new_addr = malloc(17);
-		bytes_to_str(answers[0].extra_data, new_addr);
-		return new_addr;
+		bytes_to_str(answers[0].extra_data, query_ans);
+		return query_ans;
 	}
 
 	if (type == 5){ // CNAME
 		char new_name[256];
 		getStringFromDNS(response, answers[0].extra_data, new_name);
 		printf("Was CNAME actual name: %s\n", new_name);
+		free(query_ans);
 		return resolve(new_name, is_mx);
 	}
 	//if mx type
 	if (type == 15){
-		char *mx_addr = malloc(172);
 		// Plus two is to skip the preferences filed of mx type responses
-		getStringFromDNS(response,answers[0].extra_data + 2, mx_addr);
-		return mx_addr;
+		getStringFromDNS(response,answers[0].extra_data + 2, query_ans);
+		return query_ans;
 	}
 	//if SOA type
 	if (type == 6){ 
 		printf("Invalid Hostname.\n");
+		free(query_ans);
 		exit(0);
 	}
+	free(query_ans);
 	return NULL;
 }
 
@@ -422,7 +431,6 @@ char *analyze_request(struct answer *answers, uint8_t *response, int num_answers
  * @return 0 when complete
  */
 int main(int argc, char **argv) {
-	printf("\n\n%s, %s, %s\n", argv[0], argv[1], argv[2]);
 	if (argc < 2) {
 		printf("Invalid program usage for %s!\n", argv[0]);
 		printf("Include the hostname you would like to resolve as an argument.\nIf you would like to make a MX request make the first parameter -m\n");
@@ -445,6 +453,6 @@ int main(int argc, char **argv) {
 	else {
 		printf("Could not resolve request.\n");
 	}
-
+	free(answer);
 	return 0;
 }
