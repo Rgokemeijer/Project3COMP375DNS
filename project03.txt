@@ -24,13 +24,13 @@ TK
 		- Time spent partner 1 spent working alone: 1 hour
 		- Time spent partner 2 spent working alone: 0 hours
       - Time spent partner 3 spent working alone: 0 hours
-		- Time spent working together: 7 hours
+		- Time spent working together: 9 hours
 
 
 4. A list of missing features and/or known bugs. (Put "None if there aren't
    any.)
 
-Does not return NULL upon SOA, instead exits.
+No missing eatures
 
 5. Did you submit on time? (If not, you will be charged one comp375 buck.)
 No
