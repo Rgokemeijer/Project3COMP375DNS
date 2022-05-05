@@ -264,12 +264,17 @@ char* resolve(char *hostname, bool is_mx) {
 	char root_ip[256];
     while (fgets(root_ip, sizeof(root_ip), root_servers)) {
 		// trys every root serve
-		char *query_ans = malloc(17);
-		send_query(root_ip, hostname, is_mx, sock, query_ans);
+		char *query_ans = malloc(200);
+		char* ans = send_query(root_ip, hostname, is_mx, sock, query_ans);
+		if (strcmp(ans, "SOA") == 0){
+			fclose(root_servers);
+			exit(0);
+		}
 		if (query_ans != NULL){ // If it returns a string that is answer otherwise try next root server
 			fclose(root_servers);
 			return query_ans;
 		}
+	
 		printf("Could not find response trying next root server.\n");
 	}
 	fclose(root_servers);
@@ -393,12 +398,12 @@ char *analyze_request(struct answer *answers, uint8_t *response, int num_answers
 		free(ip);
 		return send_query(stack_ip, hostname, is_mx, sock, query_ans);
 	}
-	if (type == 1){ //type A
+	else if (type == 1){ //type A
 		bytes_to_str(answers[0].extra_data, query_ans);
 		return query_ans;
 	}
 
-	if (type == 5){ // CNAME
+	else if (type == 5){ // CNAME
 		char new_name[256];
 		getStringFromDNS(response, answers[0].extra_data, new_name);
 		printf("Was CNAME actual name: %s\n", new_name);
@@ -406,16 +411,16 @@ char *analyze_request(struct answer *answers, uint8_t *response, int num_answers
 		return resolve(new_name, is_mx);
 	}
 	//if mx type
-	if (type == 15){
+	else if (type == 15){
 		// Plus two is to skip the preferences filed of mx type responses
-		getStringFromDNS(response,answers[0].extra_data + 2, query_ans);
+		getStringFromDNS(response, answers[0].extra_data + 2, query_ans);
 		return query_ans;
 	}
 	//if SOA type
-	if (type == 6){ 
+	else if (type == 6){ 
 		printf("Invalid Hostname.\n");
 		free(query_ans);
-		exit(0);
+		return "SOA";
 	}
 	free(query_ans);
 	return NULL;
